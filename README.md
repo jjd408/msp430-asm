@@ -4,6 +4,25 @@ A NetBeans module for MSP430 and MSP430X assembly in GNU `as` syntax (`msp430-el
 
 ## What it does
 
+### Machine code beside the source
+
+A column between the line numbers and the text shows what each line assembles to: its offset in its section
+and its machine code as 16-bit words, the way the CPU reads them (`mov.w #0x5A80, &0x01CC` → `0000  40B2 5A80
+01CC`). Data directives show their bytes the same way. Long data is cut short in the column; hover for all of
+it. Fields the linker fills in (symbols such as `WDTCTL` from TI's headers, external labels) show as `0000`.
+
+The file is assembled in the background with `msp430-elf-as -mmcu=msp430fr2355` whenever you stop typing for a
+moment, unsaved changes included. `.S` files go through the C preprocessor first, with TI's support headers
+(`#include <msp430.h>`) and the file's own folder on the include path. Assembler and preprocessor errors and
+warnings are marked on their lines, with the usual NetBeans error icon, underline and stripe. Errors don't cost
+the other lines their addresses: the file is assembled again without the lines in error to get them.
+
+The toolchain is found in `~/ti/msp430-gcc/bin`, `/opt/ti/msp430-gcc/bin`, `/usr/local/msp430-gcc/bin` or on the
+PATH. (Settings for its folder and the `-mmcu` device are stored as the module's `toolchainBin` and `mcu`
+preferences; an Options page for them is to come.)
+
+### Syntax highlighting
+
 Opens `.s`, `.S` (C-preprocessed), `.s43` and `.asm` files in an editor with syntax highlighting:
 
 | Colour | For |
@@ -45,8 +64,11 @@ mvn nbm:cluster nbm:run-ide "-Dnetbeans.run.params=--open some/file.S"
 | --- | --- |
 | `src/main/java/.../lexer/` | The lexer: `Msp430Lexer`, the instruction set tables (`Msp430Isa`), token kinds |
 | `src/main/java/.../file/` | The file type, its editor and its new-file template |
+| `src/main/java/.../assemble/` | Running the toolchain and reading its listing, cpp line markers and messages (plain Java) |
+| `src/main/java/.../machinecode/` | The machine code column and the per-document model that re-assembles and marks errors |
 | `src/main/resources/.../` | Colours (`FontsColors.xml`), the Options preview, names (`Bundle.properties`) |
 | `src/test/java/.../lexer/` | Lexer tests |
+| `src/test/java/.../assemble/` | Listing, line map and message parsing; assembling with the real toolchain (skipped without it) |
 
 ## Licence
 

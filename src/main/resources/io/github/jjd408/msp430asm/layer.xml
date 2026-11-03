@@ -5,6 +5,14 @@
         <folder name="text">
             <folder name="x-msp430-asm">
                 <attr name="SystemFileSystem.localizingBundle" stringvalue="io.github.jjd408.msp430asm.Bundle"/>
+                <folder name="SideBar">
+                    <!-- the machine code column, just right of the line numbers (at 1000) -->
+                    <file name="io-github-jjd408-msp430asm-machinecode-MachineCodeSideBarFactory.instance">
+                        <attr name="location" stringvalue="West"/>
+                        <attr name="position" intvalue="1300"/>
+                        <attr name="instanceOf" stringvalue="org.netbeans.spi.editor.SideBarFactory"/>
+                    </file>
+                </folder>
                 <folder name="FontsColors">
                     <folder name="NetBeans">
                         <folder name="Defaults">
