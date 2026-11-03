@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fontscolors PUBLIC "-//NetBeans//DTD Editor Fonts and Colors settings 1.1//EN"
+        "http://www.netbeans.org/dtds/EditorFontsColors-1_1.dtd">
+<!-- Colours by token category (Msp430TokenId). Where a common NetBeans category fits, the colour follows it,
+     so it changes with the editor's colour profile. -->
+<fontscolors>
+    <fontcolor name="whitespace" default="whitespace"/>
+    <fontcolor name="comment" default="comment"/>
+    <fontcolor name="preprocessor" foreColor="ff8a5a00"/>
+    <fontcolor name="label" foreColor="ff7a1fa2">
+        <font style="bold"/>
+    </fontcolor>
+    <fontcolor name="instruction" default="keyword"/>
+    <fontcolor name="directive" foreColor="ffb05c00"/>
+    <fontcolor name="register" foreColor="ff00785a"/>
+    <fontcolor name="number" default="number"/>
+    <fontcolor name="string" default="string"/>
+    <fontcolor name="char" default="char"/>
+    <fontcolor name="addressing" foreColor="ffc0392b">
+        <font style="bold"/>
+    </fontcolor>
+    <fontcolor name="operator" default="operator"/>
+    <fontcolor name="identifier" default="identifier"/>
+    <fontcolor name="error" default="error"/>
+</fontscolors>

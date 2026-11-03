@@ -1,0 +1,3 @@
+Manifest-Version: 1.0
+OpenIDE-Module-Localizing-Bundle: io/github/jjd408/msp430asm/Bundle.properties
+OpenIDE-Module-Layer: io/github/jjd408/msp430asm/layer.xml
