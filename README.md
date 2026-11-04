@@ -17,9 +17,33 @@ moment, unsaved changes included. `.S` files go through the C preprocessor first
 warnings are marked on their lines, with the usual NetBeans error icon, underline and stripe. Errors don't cost
 the other lines their addresses: the file is assembled again without the lines in error to get them.
 
-The toolchain is found in `~/ti/msp430-gcc/bin`, `/opt/ti/msp430-gcc/bin`, `/usr/local/msp430-gcc/bin` or on the
-PATH. (Settings for its folder and the `-mmcu` device are stored as the module's `toolchainBin` and `mcu`
-preferences; an Options page for them is to come.)
+The toolchain and device are set in Options (below).
+
+### Build and run
+
+**Build MSP430 Hex** (in the Build menu, the toolbar, and the file's and editor's right-click menus) saves the
+file and builds it with `msp430-elf-gcc` for the device, linked with TI's linker script and gcc's start-up code,
+so the program starts at a global `main`. The `.elf` and an Intel HEX `.hex` go in a `build` folder beside the
+source. The build's commands, messages and size table appear in the Output window; click a line that names the
+source to go to it. Assembler errors and the linker's "undefined reference" errors land on the right line.
+
+**Run in PICSimLab** (Run menu, toolbar, right-click menus) builds, then starts PICSimLab with the hex on the
+**Solitaire** board (the handheld's display and buttons) or the bare **MSP430_Board**. It needs PICSimLab with
+the MSP430 backend, [jjd408/picsimlab-msp430](https://github.com/jjd408/picsimlab-msp430); its first start takes a
+few seconds while `run.sh` builds it.
+
+### Options
+
+**Tools > Options > Miscellaneous > MSP430**:
+
+| Setting | Default |
+| --- | --- |
+| MSP430-GCC bin folder | found in `~/ti/msp430-gcc/bin`, `/opt/ti/msp430-gcc/bin`, `/usr/local/msp430-gcc/bin` or on the PATH |
+| Device (`-mmcu`) | `msp430fr2355`; it picks the linker script and the headers completion reads |
+| PICSimLab folder | the `picsimlab-msp430` checkout with `run.sh`; found in `~/projects/solitaire/sim/picsimlab-msp430` |
+| PICSimLab board | Solitaire |
+
+The page shows which toolchain and PICSimLab it found.
 
 ### Completion and help
 
@@ -88,10 +112,14 @@ mvn nbm:cluster nbm:run-ide "-Dnetbeans.run.params=--open some/file.S"
 | `src/main/java/.../machinecode/` | The machine code column and the per-document model that re-assembles and marks errors |
 | `src/main/java/.../help/` | Instruction, directive and register reference; the device's registers and constants from TI's files |
 | `src/main/java/.../completion/` | Completion (what's offered where, in `Context` and `Choices`) and Ctrl+hover help |
+| `src/main/java/.../assemble/Build.java`, `PicSimLab.java` | Building to .elf/.hex and starting PICSimLab (plain Java) |
+| `src/main/java/.../build/` | The Build and Run actions and their Output window |
+| `src/main/java/.../options/` | The Options page |
 | `src/main/resources/.../` | Colours (`FontsColors.xml`), the Options preview, names (`Bundle.properties`) |
 | `src/test/java/.../lexer/` | Lexer tests |
 | `src/test/java/.../assemble/` | Listing, line map and message parsing; assembling with the real toolchain (skipped without it) |
 | `src/test/java/.../help/`, `.../completion/` | Help coverage, TI's files, completion contexts and choices, hover help |
+| `src/test/java/.../assemble/BuildTest.java` | Building a hex, error and linker-error lines, the PICSimLab command |
 
 ## Licence
 
