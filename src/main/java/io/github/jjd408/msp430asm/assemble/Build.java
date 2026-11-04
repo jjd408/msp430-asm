@@ -16,15 +16,17 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Builds a source file into an .elf and an Intel HEX file with msp430-elf-gcc, linked with TI's linker script
- * for the device and gcc's start-up code (which calls {@code main}), then reports the size. Every command and
- * its output go to a consumer as they happen, for an output window.
+ * Builds source files (assembly and C) into one .elf and an Intel HEX file with msp430-elf-gcc, linked with TI's
+ * linker script for the device and gcc's start-up code (which calls {@code main}), then reports the size. Every
+ * command and its output go to a consumer as they happen, for an output window.
  */
 public final class Build {
 
@@ -33,14 +35,17 @@ public final class Build {
         public final boolean ok;
         public final Path elf;
         public final Path hex;
-        /** Messages about the source file, by its line. */
+        /** Messages about the (first) source file, by its line. */
         public final List<Diagnostic> diagnostics;
+        /** Messages by source file. */
+        public final Map<Path, List<Diagnostic>> byFile;
 
-        Result(boolean ok, Path elf, Path hex, List<Diagnostic> diagnostics) {
+        Result(boolean ok, Path elf, Path hex, Map<Path, List<Diagnostic>> byFile, Path first) {
             this.ok = ok;
             this.elf = elf;
             this.hex = hex;
-            this.diagnostics = diagnostics;
+            this.byFile = byFile;
+            this.diagnostics = byFile.getOrDefault(first, List.of());
         }
     }
 
@@ -57,49 +62,88 @@ public final class Build {
     }
 
     /**
+     * Builds one source file into &lt;outDir&gt;/&lt;name&gt;.elf and .hex.
+     *
      * @param source the source file (saved)
      * @param outDir where the .elf and .hex go (made if needed)
      * @param out receives each command ("$ ...") and each line it prints
      */
     public Result build(Path source, Path outDir, Consumer<String> out) throws IOException, InterruptedException {
-        Files.createDirectories(outDir);
         String name = source.getFileName().toString();
         String base = name.contains(".") ? name.substring(0, name.lastIndexOf('.')) : name;
-        Path elf = outDir.resolve(base + ".elf");
-        Path hex = outDir.resolve(base + ".hex");
-        String ext = name.contains(".") ? name.substring(name.lastIndexOf('.') + 1) : "";
-        boolean cpp = ext.equals("S") || ext.equals("S43");
+        List<Path> includes = source.getParent() == null ? List.of() : List.of(source.getParent());
+        return buildAll(List.of(source), includes, "", outDir, base, out);
+    }
+
+    /**
+     * Builds source files into one program, &lt;outDir&gt;/&lt;name&gt;.elf and .hex.
+     *
+     * @param sources assembly (.s .asm .s43; .S .S43 through cpp) and C (.c) files
+     * @param includes folders for #include and .include, besides TI's
+     * @param cflags extra compiler flags, separated by spaces (for C; may be empty)
+     */
+    public Result buildAll(List<Path> sources, List<Path> includes, String cflags, Path outDir, String name,
+            Consumer<String> out) throws IOException, InterruptedException {
+        Files.createDirectories(outDir);
+        Path elf = outDir.resolve(name + ".elf");
+        Path hex = outDir.resolve(name + ".hex");
 
         List<String> gcc = new ArrayList<>(List.of(toolchain.gcc().toString(), "-mmcu=" + mcu, "-g",
                 "-Wa,--gdwarf-2"));
+        for (String flag : cflags.trim().split("\\s+")) {
+            if (!flag.isEmpty()) {
+                gcc.add(flag);
+            }
+        }
         if (toolchain.include() != null) {
             gcc.add("-I" + toolchain.include());
             gcc.add("-L" + toolchain.include());
         }
-        if (source.getParent() != null) {
-            gcc.add("-I" + source.getParent());
+        for (Path inc : includes) {
+            gcc.add("-I" + inc);
         }
-        // gcc knows .s and .S; .asm and .s43 need telling
-        gcc.addAll(List.of("-x", cpp ? "assembler-with-cpp" : "assembler", source.toString(), "-x", "none",
-                "-o", elf.toString()));
+        for (Path source : sources) {
+            // gcc knows .s, .S and .c; .asm and .s43 need telling, so every file says what it is
+            gcc.addAll(List.of("-x", language(source), source.toString()));
+        }
+        gcc.addAll(List.of("-x", "none", "-o", elf.toString()));
 
         List<String> output = new ArrayList<>();
         int status = run(gcc, out, output);
-        List<Diagnostic> diagnostics = new ArrayList<>(Diagnostic.parse(String.join("\n", output),
-                source.toString()));
-        diagnostics.addAll(linkerErrors(output, source.toString()));
+        Map<Path, List<Diagnostic>> byFile = new LinkedHashMap<>();
+        String text = String.join("\n", output);
+        for (Path source : sources) {
+            List<Diagnostic> d = new ArrayList<>(Diagnostic.parse(text, source.toString(), sources.size() == 1));
+            d.addAll(linkerErrors(output, source.toString()));
+            byFile.put(source, d);
+        }
         if (status != 0) {
             out.accept("Build failed.");
-            return new Result(false, elf, hex, diagnostics);
+            return new Result(false, elf, hex, byFile, sources.get(0));
         }
         if (run(List.of(toolchain.bin.resolve("msp430-elf-objcopy").toString(), "-O", "ihex", elf.toString(),
                 hex.toString()), out, new ArrayList<>()) != 0) {
             out.accept("Build failed: couldn't write the hex file.");
-            return new Result(false, elf, hex, diagnostics);
+            return new Result(false, elf, hex, byFile, sources.get(0));
         }
         run(List.of(toolchain.bin.resolve("msp430-elf-size").toString(), elf.toString()), out, new ArrayList<>());
         out.accept("Built " + hex);
-        return new Result(true, elf, hex, diagnostics);
+        return new Result(true, elf, hex, byFile, sources.get(0));
+    }
+
+    /** gcc's -x language for a source file. */
+    static String language(Path source) {
+        String name = source.getFileName().toString();
+        String ext = name.contains(".") ? name.substring(name.lastIndexOf('.') + 1) : "";
+        switch (ext) {
+            case "c":
+                return "c";
+            case "S":
+            case "S43":
+                return "assembler-with-cpp";
+            default:
+                return "assembler";
+        }
     }
 
     /** "undefined reference" errors from the linker, on the line the .Loc symbol or the message names. */

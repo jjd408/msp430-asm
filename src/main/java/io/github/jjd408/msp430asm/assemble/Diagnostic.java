@@ -39,6 +39,16 @@ public final class Diagnostic {
      * naming the file.
      */
     public static List<Diagnostic> parse(String output, String file) {
+        return parse(output, file, true);
+    }
+
+    /**
+     * Picks out the messages about a file.
+     *
+     * @param othersOnLine1 put messages about other files on line 1, naming them; when several files are built
+     *     together, each file's messages belong to it alone, so pass false
+     */
+    public static List<Diagnostic> parse(String output, String file, boolean othersOnLine1) {
         List<Diagnostic> out = new ArrayList<>();
         for (String raw : output.split("\r?\n")) {
             Matcher m = MESSAGE.matcher(raw);
@@ -48,7 +58,7 @@ public final class Diagnostic {
             Severity sev = m.group(3).toLowerCase().contains("error") ? Severity.ERROR : Severity.WARNING;
             if (m.group(1).equals(file)) {
                 out.add(new Diagnostic(Integer.parseInt(m.group(2)), sev, m.group(4)));
-            } else {
+            } else if (othersOnLine1) {
                 out.add(new Diagnostic(1, sev, m.group(1) + ":" + m.group(2) + ": " + m.group(4)));
             }
         }

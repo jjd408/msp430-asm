@@ -32,6 +32,30 @@ source to go to it. Assembler errors and the linker's "undefined reference" erro
 the MSP430 backend, [jjd408/picsimlab-msp430](https://github.com/jjd408/picsimlab-msp430); its first start takes a
 few seconds while `run.sh` builds it.
 
+### Projects
+
+A program of several files is an **MSP430 project**: **File > New Project > MSP430 > MSP430 Project** asks for a
+name and folder and makes one with a starter program in two files: `src/main.S` blinks P1.0 and calls `delay` in
+`src/delay.S`. Any folder with an `msp430-project.properties` file opens as one (**File > Open Project**).
+
+```
+Blinky/
+  msp430-project.properties   name, and optional mcu, cflags, board
+  src/                        every .s .S .s43 .asm .c here (and in folders below) is built
+  build/Blinky.elf, .hex      the program
+```
+
+The project's **Build** (F11), **Clean and Build**, **Clean** and **Run** (F6, in PICSimLab) build everything in
+`src/` into one program; files include each other from `src/`. Errors in any file are clickable in the Output
+window. The properties file overrides Options for that project:
+
+| Key | What | Empty |
+| --- | --- | --- |
+| `name` | Program name, for `build/<name>.hex` | the folder's name |
+| `mcu` | Device for `-mmcu` | the Options device |
+| `cflags` | Extra compiler flags, for C files | none (new projects get `-Os -Wall`) |
+| `board` | PICSimLab board | the Options board |
+
 ### Options
 
 **Tools > Options > Miscellaneous > MSP430**:
@@ -64,6 +88,12 @@ they match the headers your code includes.
 
 **Hold Ctrl and hover** over an instruction, directive, register, peripheral register, constant or label for the
 same help; **Ctrl+click** a label to go to where it's defined.
+
+### Documentation
+
+**Help > MSP430 Documentation** opens TI's guides in the web browser: the MSP430FR4xx/FR2xx family user's guide
+(SLAU445: the CPU, instruction set and every peripheral), the MSP430FR2355 datasheet (pins, memory map,
+electrical limits), the MSP430-GCC user's guide (SLAU646), and the GNU assembler manual's MSP430 section.
 
 ### Syntax highlighting
 
@@ -115,11 +145,13 @@ mvn nbm:cluster nbm:run-ide "-Dnetbeans.run.params=--open some/file.S"
 | `src/main/java/.../assemble/Build.java`, `PicSimLab.java` | Building to .elf/.hex and starting PICSimLab (plain Java) |
 | `src/main/java/.../build/` | The Build and Run actions and their Output window |
 | `src/main/java/.../options/` | The Options page |
+| `src/main/java/.../project/` | The MSP430 project type: recognizing it, its node and actions, the New Project wizard; `ProjectFiles` is plain Java |
 | `src/main/resources/.../` | Colours (`FontsColors.xml`), the Options preview, names (`Bundle.properties`) |
 | `src/test/java/.../lexer/` | Lexer tests |
 | `src/test/java/.../assemble/` | Listing, line map and message parsing; assembling with the real toolchain (skipped without it) |
 | `src/test/java/.../help/`, `.../completion/` | Help coverage, TI's files, completion contexts and choices, hover help |
 | `src/test/java/.../assemble/BuildTest.java` | Building a hex, error and linker-error lines, the PICSimLab command |
+| `src/test/java/.../project/` | Making a project, which files are sources, building the starter with a C file, errors per file |
 
 ## Licence
 

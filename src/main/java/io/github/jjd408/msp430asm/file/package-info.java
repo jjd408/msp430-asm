@@ -14,7 +14,8 @@
         displayName = "#Msp430Template_display",
         description = "Msp430TemplateDescription.html",
         iconBase = "io/github/jjd408/msp430asm/file/msp430.png",
-        position = 1900)
+        position = 1900,
+        category = {"msp430", "simple-files"})
 @Messages("Msp430Template_display=MSP430 Assembly File")
 package io.github.jjd408.msp430asm.file;
 

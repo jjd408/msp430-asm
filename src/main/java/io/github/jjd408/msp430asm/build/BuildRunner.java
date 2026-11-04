@@ -19,10 +19,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.openide.cookies.SaveCookie;
 import org.openide.cookies.LineCookie;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
@@ -36,20 +35,69 @@ import org.openide.windows.OutputListener;
 import org.openide.windows.OutputWriter;
 
 /**
- * Builds an MSP430 assembly file into build/&lt;name&gt;.hex beside it, and optionally runs the hex in
- * PICSimLab, reporting in an Output window tab where lines naming the source and a line number open it there.
+ * Runs MSP430 builds (of one file or a project) and, if asked, the result in PICSimLab, reporting in an Output
+ * window tab where lines naming a file and a line number open it there.
  */
-final class BuildRunner {
+public final class BuildRunner {
+
+    /** One build: saves what it builds, then builds, printing to {@code out}. */
+    public interface Job {
+        void save() throws IOException;
+
+        /** Builds, or returns null when there was only cleaning to do. */
+        Build.Result build(Toolchain toolchain, Consumer<String> out) throws IOException, InterruptedException;
+
+        /** The board to run on. */
+        String board();
+
+        /** Called after the build, e.g. to refresh the output folder. */
+        void built();
+    }
 
     private static final RequestProcessor RP = new RequestProcessor("MSP430 build", 1);
 
     private BuildRunner() {
     }
 
-    static void build(DataObject dob, boolean run) {
+    /** Builds one file into build/&lt;name&gt;.hex beside it. */
+    static void buildFile(DataObject dob, boolean run) {
         FileObject fo = dob.getPrimaryFile();
         File file = FileUtil.toFile(fo);
-        InputOutput io = IOProvider.getDefault().getIO("MSP430 " + fo.getNameExt(), false);
+        if (file == null) {
+            IOProvider.getDefault().getIO("MSP430 " + fo.getNameExt(), false).getErr()
+                    .println(fo.getNameExt() + " isn't on disk, so it can't be built.");
+            return;
+        }
+        start("MSP430 " + fo.getNameExt(), run, new Job() {
+            @Override
+            public void save() throws IOException {
+                org.openide.cookies.SaveCookie s = dob.getLookup().lookup(org.openide.cookies.SaveCookie.class);
+                if (s != null) {
+                    s.save();
+                }
+            }
+
+            @Override
+            public Build.Result build(Toolchain tc, Consumer<String> out) throws IOException, InterruptedException {
+                return new Build(tc, Settings.mcu()).build(file.toPath(), file.toPath().getParent().resolve("build"),
+                        out);
+            }
+
+            @Override
+            public String board() {
+                return Settings.board();
+            }
+
+            @Override
+            public void built() {
+                fo.getParent().refresh();
+            }
+        });
+    }
+
+    /** Builds in the background, printing to a tab, and runs the hex in PICSimLab when {@code run} is set. */
+    public static void start(String tab, boolean run, Job job) {
+        InputOutput io = IOProvider.getDefault().getIO(tab, false);
         io.select();
         OutputWriter out = io.getOut();
         OutputWriter err = io.getErr();
@@ -58,29 +106,18 @@ final class BuildRunner {
         } catch (IOException e) {
             // a fresh tab
         }
-        if (file == null) {
-            err.println(fo.getNameExt() + " isn't on disk, so it can't be built.");
-            return;
-        }
         RP.post(() -> {
             try {
-                // Build what's in the editor: save it first
-                SaveCookie s = dob.getLookup().lookup(SaveCookie.class);
-                if (s != null) {
-                    s.save();
-                }
+                job.save();
                 Toolchain tc = Settings.toolchain();
                 if (tc == null) {
                     err.println("MSP430-GCC wasn't found. Set its bin folder in Tools > Options > Miscellaneous > "
                             + "MSP430.");
                     return;
                 }
-                Path source = file.toPath();
-                Path outDir = source.getParent().resolve("build");
-                Build.Result r = new Build(tc, Settings.mcu()).build(source, outDir,
-                        line -> print(out, err, line, dob, source));
-                fo.getParent().refresh();
-                if (!r.ok || !run) {
+                Build.Result r = job.build(tc, line -> print(out, err, line));
+                job.built();
+                if (r == null || !r.ok || !run) {
                     return;
                 }
                 PicSimLab sim = Settings.picsimlab();
@@ -89,10 +126,10 @@ final class BuildRunner {
                             + "in Tools > Options > Miscellaneous > MSP430.");
                     return;
                 }
-                out.println("$ " + String.join(" ", sim.command(Settings.board(), r.hex)));
-                out.println("Starting PICSimLab on the " + Settings.board() + " board; its first start takes a few "
-                        + "seconds.");
-                Process p = sim.launch(Settings.board(), r.hex);
+                String board = job.board();
+                out.println("$ " + String.join(" ", sim.command(board, r.hex)));
+                out.println("Starting PICSimLab on the " + board + " board; its first start takes a few seconds.");
+                Process p = sim.launch(board, r.hex);
                 try (BufferedReader rd = new BufferedReader(new InputStreamReader(p.getInputStream(),
                         StandardCharsets.UTF_8))) {
                     String line;
@@ -112,26 +149,28 @@ final class BuildRunner {
         });
     }
 
-    private static final Pattern AT_LINE = Pattern.compile("^(.+?):(\\d+):");
+    private static final Pattern AT_LINE = Pattern.compile("^(/[^:]+):(\\d+):");
 
-    /** Prints a line of build output; one naming the source file and a line opens it there when clicked. */
-    private static void print(OutputWriter out, OutputWriter err, String line, DataObject dob, Path source) {
+    /** Prints a line of build output; one naming a file and a line opens it there when clicked. */
+    private static void print(OutputWriter out, OutputWriter err, String line) {
         String shown = line.replaceFirst("^.*?/bin/ld: ", "ld: ");
         Matcher m = AT_LINE.matcher(shown);
-        if (m.find() && m.group(1).equals(source.toString())) {
-            int lineNo = Integer.parseInt(m.group(2));
-            try {
-                err.println(shown, new GoToLine(dob, lineNo), true);
-            } catch (IOException e) {
-                err.println(shown);
+        if (m.find()) {
+            FileObject fo = FileUtil.toFileObject(new File(m.group(1)));
+            if (fo != null) {
+                try {
+                    err.println(shown, new GoToLine(DataObject.find(fo), Integer.parseInt(m.group(2))), true);
+                    return;
+                } catch (IOException e) {
+                    // print it plainly
+                }
             }
-            return;
         }
         PrintWriter w = shown.contains("rror") || shown.contains("undefined reference") ? err : out;
         w.println(shown);
     }
 
-    /** Opens the source at a line. */
+    /** Opens a file at a line. */
     private static final class GoToLine implements OutputListener {
         private final DataObject dob;
         private final int line;

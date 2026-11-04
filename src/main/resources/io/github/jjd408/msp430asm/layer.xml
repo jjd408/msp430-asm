@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE filesystem PUBLIC "-//NetBeans//DTD Filesystem 1.2//EN" "http://www.netbeans.org/dtds/filesystem-1_2.dtd">
 <filesystem>
+    <folder name="Menu">
+        <folder name="Help">
+            <!-- after Help Contents and the online docs, before About -->
+            <folder name="MSP430 Documentation">
+                <attr name="position" intvalue="350"/>
+            </folder>
+        </folder>
+    </folder>
     <folder name="Editors">
         <folder name="text">
             <folder name="x-msp430-asm">
