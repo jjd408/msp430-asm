@@ -13,6 +13,14 @@
         <folder name="text">
             <folder name="x-msp430-asm">
                 <attr name="SystemFileSystem.localizingBundle" stringvalue="io.github.jjd408.msp430asm.Bundle"/>
+                <folder name="GlyphGutterActions">
+                    <!-- a click in the gutter toggles a breakpoint, as in Java and C files -->
+                    <file name="org-netbeans-modules-debugger-ui-actions-ToggleBreakpointAction.shadow">
+                        <attr name="originalFile"
+                              stringvalue="Actions/Debug/org-netbeans-modules-debugger-ui-actions-ToggleBreakpointAction.instance"/>
+                        <attr name="position" intvalue="500"/>
+                    </file>
+                </folder>
                 <folder name="SideBar">
                     <!-- the machine code column, just right of the line numbers (at 1000) -->
                     <file name="io-github-jjd408-msp430asm-machinecode-MachineCodeSideBarFactory.instance">

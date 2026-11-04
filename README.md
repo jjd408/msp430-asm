@@ -56,6 +56,14 @@ window. The properties file overrides Options for that project:
 | `cflags` | Extra compiler flags, for C files | none (new projects get `-Os -Wall`) |
 | `board` | PICSimLab board | the Options board |
 
+### Breakpoints
+
+Click in the editor's left margin (or press **Ctrl+F8**) on a line of an assembly file to set a breakpoint;
+click again to remove it. They show in **Window > Debugging > Breakpoints** as `main.S:12`, where they can be
+disabled, deleted, or double-clicked to go to the line. They follow their lines as the file is edited and are
+kept between sessions. (Debugging in PICSimLab, which stops at them, is the next step; the simulator's GDB server
+is ready: see `MSP430.md` in picsimlab-msp430.)
+
 ### Options
 
 **Tools > Options > Miscellaneous > MSP430**:
@@ -119,15 +127,31 @@ New File > Other > MSP430 Assembly File** starts a new file.
 Needs JDK 17 or later and Maven. It's built against Apache NetBeans 31 (`RELEASE310` APIs).
 
 ```sh
-mvn package          # builds target/msp430-asm-1.0-SNAPSHOT.nbm and runs the lexer tests
+mvn package          # builds target/msp430-asm-1.0-SNAPSHOT.nbm, runs the tests, and updates the update center
 ```
 
-Install the `.nbm` with **Tools > Plugins > Downloaded > Add Plugins...**, then **Install**.
+### Updating from a local update center (once set up, no reinstalling)
 
-To try it without installing, in a NetBeans with its own throwaway settings (`target/userdir`):
+Every build gets a higher version (`1.0.<date>.1<time>`, UTC) and writes an update center to
+`target/netbeans_site/updates.xml`. Add it to NetBeans once:
+
+1. **Tools > Plugins > Settings > Add**
+2. Name: `MSP430 Assembly (local build)`; URL: `file:/home/joe/NetBeansProjects/msp430-asm/target/netbeans_site/updates.xml`
+3. **OK**
+
+Then after each `mvn package`: **Tools > Plugins > Updates > Check for Updates**, tick **MSP430 Assembly**,
+**Update**. NetBeans replaces the installed copy (restarting itself if it asks to). A first install can come
+from the same place (**Available Plugins**), or from the `.nbm` with **Downloaded > Add Plugins...**.
+
+(`mvn clean` deletes the update center until the next `mvn package`; NetBeans just reports it unreachable meanwhile.)
+
+### Trying it without installing
+
+In a NetBeans with its own throwaway settings (`target/userdir`):
 
 ```sh
-mvn nbm:cluster nbm:run-ide "-Dnetbeans.run.params=--open some/file.S"
+mvn nbm:cluster nbm:run-ide
+/usr/lib/apache-netbeans/bin/netbeans --userdir target/userdir --open some/file.S   # while it runs
 ```
 
 `netbeans.installation` in `pom.xml` points at the NetBeans to run (`/usr/lib/apache-netbeans`).
@@ -145,6 +169,7 @@ mvn nbm:cluster nbm:run-ide "-Dnetbeans.run.params=--open some/file.S"
 | `src/main/java/.../assemble/Build.java`, `PicSimLab.java` | Building to .elf/.hex and starting PICSimLab (plain Java) |
 | `src/main/java/.../build/` | The Build and Run actions and their Output window |
 | `src/main/java/.../options/` | The Options page |
+| `src/main/java/.../debug/` | Breakpoints: the breakpoint, the gutter toggle, its marks, the Breakpoints window, saving them |
 | `src/main/java/.../project/` | The MSP430 project type: recognizing it, its node and actions, the New Project wizard; `ProjectFiles` is plain Java |
 | `src/main/resources/.../` | Colours (`FontsColors.xml`), the Options preview, names (`Bundle.properties`) |
 | `src/test/java/.../lexer/` | Lexer tests |

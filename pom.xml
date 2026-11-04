@@ -17,6 +17,10 @@
         <netbeans.installation>/usr/lib/apache-netbeans</netbeans.installation>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>17</maven.compiler.release>
+        <!-- Every build gets a higher specification version (1.0.<date>.1<time>, UTC), so NetBeans offers it as
+             an update from the local update center in target/netbeans_site (see README) -->
+        <maven.build.timestamp.format>yyyyMMdd.1HHmm</maven.build.timestamp.format>
+        <spec.version>1.0.${maven.build.timestamp}</spec.version>
     </properties>
 
     <licenses>
@@ -34,11 +38,46 @@
                 <version>14.5</version>
                 <extensions>true</extensions>
                 <configuration>
+                    <sourceManifestFile>${project.build.directory}/nbm-manifest/manifest.mf</sourceManifestFile>
                     <codeNameBase>io.github.jjd408.msp430asm</codeNameBase>
                     <author>jjd408</author>
                     <licenseName>GPL-2.0-or-later</licenseName>
                     <licenseFile>${basedir}/LICENSE</licenseFile>
                 </configuration>
+                <executions>
+                    <execution>
+                        <!-- target/netbeans_site/updates.xml: an update center for Tools > Plugins -->
+                        <id>update-center</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>autoupdate</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <execution>
+                        <!-- the module manifest, with the build's specification version filled in -->
+                        <id>manifest</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/nbm-manifest</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>src/main/nbm</directory>
+                                    <filtering>true</filtering>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -65,6 +104,26 @@
     </build>
 
     <dependencies>
+        <dependency>
+            <groupId>org.netbeans.api</groupId>
+            <artifactId>org-netbeans-api-debugger</artifactId>
+            <version>${netbeans.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.netbeans.api</groupId>
+            <artifactId>org-netbeans-spi-debugger-ui</artifactId>
+            <version>${netbeans.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.netbeans.api</groupId>
+            <artifactId>org-netbeans-spi-viewmodel</artifactId>
+            <version>${netbeans.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.netbeans.api</groupId>
+            <artifactId>org-openide-modules</artifactId>
+            <version>${netbeans.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.netbeans.api</groupId>
             <artifactId>org-netbeans-modules-projectapi</artifactId>
