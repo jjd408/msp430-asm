@@ -9,6 +9,7 @@
  */
 package io.github.jjd408.msp430asm.machinecode;
 
+import io.github.jjd408.msp430asm.Settings;
 import io.github.jjd408.msp430asm.assemble.Assembler;
 import io.github.jjd408.msp430asm.assemble.Diagnostic;
 import io.github.jjd408.msp430asm.assemble.Listing;
@@ -36,21 +37,14 @@ import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.loaders.DataObject;
 import org.openide.util.ChangeSupport;
-import org.openide.util.NbPreferences;
 import org.openide.util.RequestProcessor;
 
 /**
  * The machine code of one MSP430 assembly document: assembled in the background whenever the text has been
  * still for a moment, with the assembler's errors and warnings shown as editor annotations.
- *
- * <p>Settings (in the module's preferences, until an Options page arrives): {@code toolchainBin}, the folder
- * holding msp430-elf-as (found automatically when empty), and {@code mcu}, the -mmcu device (msp430fr2355).
+ * The toolchain and device come from {@link Settings}.
  */
 public final class MachineCode {
-
-    static final String PREF_TOOLCHAIN_BIN = "toolchainBin";
-    static final String PREF_MCU = "mcu";
-    static final String DEFAULT_MCU = "msp430fr2355";
 
     private static final Logger LOG = Logger.getLogger(MachineCode.class.getName());
     private static final RequestProcessor RP = new RequestProcessor("MSP430 assembler", 1);
@@ -125,14 +119,14 @@ public final class MachineCode {
         }
 
         List<ErrorDescription> errors = new ArrayList<>();
-        Toolchain tc = Toolchain.find(NbPreferences.forModule(MachineCode.class).get(PREF_TOOLCHAIN_BIN, ""));
+        Toolchain tc = Settings.toolchain();
         if (tc == null) {
             code = Collections.emptyMap();
             errors.add(ErrorDescriptionFactory.createErrorDescription(Severity.WARNING,
                     "MSP430-GCC not found (looked in ~/ti/msp430-gcc/bin and on the PATH), so there's no machine "
                     + "code to show", doc, 1));
         } else {
-            String mcu = NbPreferences.forModule(MachineCode.class).get(PREF_MCU, DEFAULT_MCU);
+            String mcu = Settings.mcu();
             try {
                 Assembler.Result r = new Assembler(tc, mcu).assemble(text[0], preprocess, dir);
                 code = r.code;

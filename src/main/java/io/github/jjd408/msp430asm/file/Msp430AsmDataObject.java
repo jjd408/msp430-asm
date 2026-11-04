@@ -35,7 +35,7 @@ import org.openide.windows.TopComponent;
         displayName = "#LBL_Msp430Asm_LOADER",
         mimeType = Msp430Asm.MIME_TYPE,
         extension = {"s", "S", "s43", "S43", "asm", "ASM"},
-        position = 280)
+        position = 2437)
 @DataObject.Registration(
         mimeType = Msp430Asm.MIME_TYPE,
         iconBase = "io/github/jjd408/msp430asm/file/msp430.png",

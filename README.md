@@ -21,6 +21,26 @@ The toolchain is found in `~/ti/msp430-gcc/bin`, `/opt/ti/msp430-gcc/bin`, `/usr
 PATH. (Settings for its folder and the `-mmcu` device are stored as the module's `toolchainBin` and `mcu`
 preferences; an Options page for them is to come.)
 
+### Completion and help
+
+**Ctrl+Space** offers what fits where the caret is, with help for the selected choice beside the list:
+
+| Where | Offered |
+| --- | --- |
+| The start of a statement (after any label) | Instructions, in each size they take (`mov`, `mov.b`, `mov.w`; `movx.a`), or directives after a `.` |
+| After `&` (absolute) | The device's peripheral registers (`P1OUT`, `WDTCTL`, ...), with their sizes and addresses; labels |
+| After `#` (immediate) | The device's constants (`BIT0`, `WDTPW`, `TBSSEL__ACLK`, ...), with their values and registers; labels |
+| After `@` (indirect) | CPU registers |
+| Other operands | CPU registers and labels; peripheral registers and constants once two letters narrow them down |
+
+The list opens by itself after typing `&` or `#`. Instruction help gives the syntax, the operation, which status
+bits (V N Z C) it changes, its sizes, and what an emulated instruction assembles as. Peripheral registers and
+constants come from TI's own support files for the device (`msp430fr2355.h` and `msp430fr2355_symbols.ld`), so
+they match the headers your code includes.
+
+**Hold Ctrl and hover** over an instruction, directive, register, peripheral register, constant or label for the
+same help; **Ctrl+click** a label to go to where it's defined.
+
 ### Syntax highlighting
 
 Opens `.s`, `.S` (C-preprocessed), `.s43` and `.asm` files in an editor with syntax highlighting:
@@ -66,9 +86,12 @@ mvn nbm:cluster nbm:run-ide "-Dnetbeans.run.params=--open some/file.S"
 | `src/main/java/.../file/` | The file type, its editor and its new-file template |
 | `src/main/java/.../assemble/` | Running the toolchain and reading its listing, cpp line markers and messages (plain Java) |
 | `src/main/java/.../machinecode/` | The machine code column and the per-document model that re-assembles and marks errors |
+| `src/main/java/.../help/` | Instruction, directive and register reference; the device's registers and constants from TI's files |
+| `src/main/java/.../completion/` | Completion (what's offered where, in `Context` and `Choices`) and Ctrl+hover help |
 | `src/main/resources/.../` | Colours (`FontsColors.xml`), the Options preview, names (`Bundle.properties`) |
 | `src/test/java/.../lexer/` | Lexer tests |
 | `src/test/java/.../assemble/` | Listing, line map and message parsing; assembling with the real toolchain (skipped without it) |
+| `src/test/java/.../help/`, `.../completion/` | Help coverage, TI's files, completion contexts and choices, hover help |
 
 ## Licence
 
