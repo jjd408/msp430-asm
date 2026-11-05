@@ -38,7 +38,7 @@ public final class Msp430Project implements Project {
         this.lookup = Lookups.fixed(this, new Info(), new Msp430ActionProvider(this), new Msp430LogicalView(this),
                 GenericSources.genericOnly(this),
                 (RecommendedTemplates) () -> new String[] {CATEGORY, "simple-files"},
-                (PrivilegedTemplates) () -> new String[] {"Templates/Other/main.s", "Templates/Other/Folder",
+                (PrivilegedTemplates) () -> new String[] {"Templates/Other/main.S", "Templates/Other/Folder",
                     "Templates/Other/file"});
     }
 

@@ -12,6 +12,7 @@ package io.github.jjd408.msp430asm.machinecode;
 import io.github.jjd408.msp430asm.Settings;
 import io.github.jjd408.msp430asm.assemble.Assembler;
 import io.github.jjd408.msp430asm.assemble.Diagnostic;
+import io.github.jjd408.msp430asm.assemble.Preprocessor;
 import io.github.jjd408.msp430asm.assemble.Listing;
 import io.github.jjd408.msp430asm.assemble.Toolchain;
 import java.io.File;
@@ -111,7 +112,7 @@ public final class MachineCode {
         });
         FileObject fo = fileOf(doc);
         String ext = fo == null ? "s" : fo.getExt();
-        boolean preprocess = ext.equals("S") || ext.equals("S43");
+        boolean preprocess = Preprocessor.runsOn(ext);
         Path dir = null;
         if (fo != null && fo.getParent() != null) {
             File f = FileUtil.toFile(fo.getParent());
@@ -131,7 +132,12 @@ public final class MachineCode {
                 Assembler.Result r = new Assembler(tc, mcu).assemble(text[0], preprocess, dir);
                 code = r.code;
                 int lines = doc.getDefaultRootElement().getElementCount();
-                for (Diagnostic d : r.diagnostics) {
+                List<Diagnostic> all = new ArrayList<>();
+                if (!preprocess) {
+                    all.addAll(Preprocessor.ignoredDirectives(text[0], fo == null ? "this file" : fo.getNameExt()));
+                }
+                all.addAll(r.diagnostics);
+                for (Diagnostic d : all) {
                     Severity sev = d.severity == Diagnostic.Severity.ERROR ? Severity.ERROR : Severity.WARNING;
                     errors.add(ErrorDescriptionFactory.createErrorDescription(sev, d.message, doc,
                             Math.max(1, Math.min(d.line, lines))));

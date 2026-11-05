@@ -146,7 +146,12 @@ Opens `.s`, `.S` (C-preprocessed), `.s43` and `.asm` files in an editor with syn
 
 The first word of each statement is its mnemonic, so registers and symbols in the operands aren't mistaken for
 instructions. Colours can be changed under **Tools > Options > Fonts & Colors > MSP430 Assembly**. **File >
-New File > Other > MSP430 Assembly File** starts a new file.
+New File > Other > MSP430 Assembly File** starts a new `.S` file that includes `msp430.h`, with a routine named
+after the file and a comment block for its inputs, outputs and registers.
+
+Only `.S` (and `.S43`) files go through the C preprocessor, so `#include <msp430.h>` and TI's names work only
+there. In a `.s`, `.s43` or `.asm` file the preprocessor lines are ignored; the editor and the build mark them
+with an error saying to rename the file `.S`.
 
 ## Building and installing
 

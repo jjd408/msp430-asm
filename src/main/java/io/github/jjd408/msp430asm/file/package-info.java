@@ -10,7 +10,8 @@
 /** The MSP430 assembly file type, its editor and its new-file template. */
 @TemplateRegistration(
         folder = "Other",
-        content = "main.s",
+        content = "main.S",
+        scriptEngine = "freemarker",
         displayName = "#Msp430Template_display",
         description = "Msp430TemplateDescription.html",
         iconBase = "io/github/jjd408/msp430asm/file/msp430.png",

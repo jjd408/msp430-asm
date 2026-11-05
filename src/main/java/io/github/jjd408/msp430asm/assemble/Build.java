@@ -102,6 +102,18 @@ public final class Build {
         for (Path inc : includes) {
             gcc.add("-I" + inc);
         }
+        Map<Path, List<Diagnostic>> early = new LinkedHashMap<>();
+        for (Path source : sources) {
+            if (language(source).equals("assembler")) {
+                // #include in a file that isn't preprocessed: say so before gcc's puzzling errors
+                List<Diagnostic> ignored = Preprocessor.ignoredDirectives(Files.readString(source),
+                        source.getFileName().toString());
+                for (Diagnostic d : ignored) {
+                    out.accept(source + ":" + d.line + ": error: " + d.message);
+                }
+                early.put(source, ignored);
+            }
+        }
         for (Path source : sources) {
             // gcc knows .s, .S and .c; .asm and .s43 need telling, so every file says what it is
             gcc.addAll(List.of("-x", language(source), source.toString()));
@@ -113,7 +125,8 @@ public final class Build {
         Map<Path, List<Diagnostic>> byFile = new LinkedHashMap<>();
         String text = String.join("\n", output);
         for (Path source : sources) {
-            List<Diagnostic> d = new ArrayList<>(Diagnostic.parse(text, source.toString(), sources.size() == 1));
+            List<Diagnostic> d = new ArrayList<>(early.getOrDefault(source, List.of()));
+            d.addAll(Diagnostic.parse(text, source.toString(), sources.size() == 1));
             d.addAll(linkerErrors(output, source.toString()));
             byFile.put(source, d);
         }
