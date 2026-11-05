@@ -115,6 +115,14 @@ they match the headers your code includes.
 **Hold Ctrl and hover** over an instruction, directive, register, peripheral register, constant or label for the
 same help; **Ctrl+click** a label to go to where it's defined.
 
+### Documentation window
+
+**MSP430 Documentation** (beside the editor; **Window > MSP430 Documentation** or the editor's right-click menu)
+explains what's under the cursor as you move it: an instruction (operation, flags, sizes, what an emulated one
+assembles as), a directive, a CPU register, a peripheral register with its bits, or a constant. With the cursor
+elsewhere on an instruction's line (between operands, in the comment), it shows that line's instruction. It opens
+by itself the first time you edit an assembly file; after that it stays where you leave it, closed or open.
+
 ### Documentation
 
 **Help > MSP430 Documentation** opens TI's guides in the web browser: the MSP430FR4xx/FR2xx family user's guide

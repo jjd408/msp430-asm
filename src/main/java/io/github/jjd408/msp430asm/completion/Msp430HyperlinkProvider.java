@@ -29,52 +29,8 @@ import org.netbeans.lib.editor.hyperlink.spi.HyperlinkType;
 @MimeRegistration(mimeType = Msp430Asm.MIME_TYPE, service = HyperlinkProviderExt.class, position = 100)
 public final class Msp430HyperlinkProvider implements HyperlinkProviderExt {
 
-    /** The word at an offset and what's around it. */
-    private static final class Word {
-        int start;
-        int end;
-        String word;
-        Context context;
-        String text;
-    }
-
-    private static Word wordAt(Document doc, int offset) {
-        Word[] out = new Word[1];
-        doc.render(() -> {
-            try {
-                Element root = doc.getDefaultRootElement();
-                Element line = root.getElement(root.getElementIndex(offset));
-                int ls = line.getStartOffset();
-                String lineText = doc.getText(ls, line.getEndOffset() - ls);
-                int at = offset - ls;
-                int s = at;
-                int e = at;
-                while (s > 0 && Context.isWordChar(lineText.charAt(s - 1))) {
-                    s--;
-                }
-                while (e < lineText.length() && Context.isWordChar(lineText.charAt(e))) {
-                    e++;
-                }
-                if (s == e) {
-                    return;
-                }
-                Word w = new Word();
-                w.start = ls + s;
-                w.end = ls + e;
-                w.word = lineText.substring(s, e);
-                w.context = Context.of(lineText.substring(0, s));
-                w.text = doc.getText(0, doc.getLength());
-                out[0] = w;
-            } catch (BadLocationException e) {
-                out[0] = null;
-            }
-        });
-        return out[0];
-    }
-
     private static String help(Document doc, int offset) {
-        Word w = wordAt(doc, offset);
-        return w == null ? null : Choices.helpFor(w.context, w.word, w.text, Settings.device());
+        return HelpAt.help(doc, offset, Settings.device());
     }
 
     @Override
@@ -89,17 +45,22 @@ public final class Msp430HyperlinkProvider implements HyperlinkProviderExt {
 
     @Override
     public int[] getHyperlinkSpan(Document doc, int offset, HyperlinkType type) {
-        Word w = wordAt(doc, offset);
+        HelpAt.Word w = HelpAt.wordAt(doc, offset);
         return w == null ? null : new int[] {w.start, w.end};
     }
 
     @Override
     public void performClickAction(Document doc, int offset, HyperlinkType type) {
-        Word w = wordAt(doc, offset);
+        HelpAt.Word w = HelpAt.wordAt(doc, offset);
         if (w == null) {
             return;
         }
-        Integer line = Labels.scan(w.text).get(w.word);
+        Integer line;
+        try {
+            line = Labels.scan(doc.getText(0, doc.getLength())).get(w.word);
+        } catch (BadLocationException e) {
+            return;
+        }
         JTextComponent c = EditorRegistry.lastFocusedComponent();
         if (line == null || c == null || c.getDocument() != doc) {
             return;
