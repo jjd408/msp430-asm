@@ -56,13 +56,31 @@ window. The properties file overrides Options for that project:
 | `cflags` | Extra compiler flags, for C files | none (new projects get `-Os -Wall`) |
 | `board` | PICSimLab board | the Options board |
 
-### Breakpoints
+### Debugging
 
-Click in the editor's left margin (or press **Ctrl+F8**) on a line of an assembly file to set a breakpoint;
-click again to remove it. They show in **Window > Debugging > Breakpoints** as `main.S:12`, where they can be
-disabled, deleted, or double-clicked to go to the line. They follow their lines as the file is edited and are
-kept between sessions. (Debugging in PICSimLab, which stops at them, is the next step; the simulator's GDB server
-is ready: see `MSP430.md` in picsimlab-msp430.)
+**Debug in PICSimLab** (Run menu, toolbar, the file's and editor's right-click menus) or, in a project, **Debug
+Project** (Ctrl+F5) builds the program and debugs it on the PICSimLab board:
+
+- Click in the editor's left margin (or **Ctrl+F8**) to set a breakpoint on a line; click again to remove it.
+  They're listed in **Window > Debugging > Breakpoints** as `main.S:12` (disable, delete, double-click to go
+  there), follow their lines as you edit, and are kept between sessions. Breakpoints in C files come from
+  NetBeans' C/C++ support and work the same way.
+- The program stops at a breakpoint with its line marked green. **Continue** (F5), **Step Over** (F8), **Step
+  Into** (F7), **Step Out** (Ctrl+F7) and **Pause** work from the Debug menu and toolbar; **Finish Debugger
+  Session** (Shift+F5) leaves the program running in PICSimLab.
+- **Variables** shows the CPU registers (SR's flags spelled out) and every peripheral register of the device by
+  name, grouped by module (P1, TB0, UCB1, WDT...), with TI's descriptions as tooltips. Reading them doesn't
+  disturb the program (no flags cleared).
+- **Watches** take any expression gdb can evaluate: C variables, `$r12`, `*(unsigned char *)0x0202`,
+  `*(unsigned *)&counter` for an assembly label.
+
+How it works: the plugin starts PICSimLab with debugging on (`run.sh --debug`), whose MSP430 backend serves
+GDB's protocol on port 1234, and drives TI's `msp430-elf-gdb` (through picsimlab-msp430's `tools/msp430-gdb`,
+which lets it run with ncurses 6) over its machine interface. If PICSimLab is already debugging on that port,
+the session loads the new program into it and resets the chip, so there's no need to restart it. While the
+program is stopped, the whole board waits. The session's messages go to the build's Output tab; for gdb's whole
+conversation, start NetBeans with `-J-Dio.github.jjd408.msp430asm.debug.Gdb.level=FINE` (it goes to
+`messages.log`).
 
 ### Options
 
@@ -169,13 +187,14 @@ mvn nbm:cluster nbm:run-ide
 | `src/main/java/.../assemble/Build.java`, `PicSimLab.java` | Building to .elf/.hex and starting PICSimLab (plain Java) |
 | `src/main/java/.../build/` | The Build and Run actions and their Output window |
 | `src/main/java/.../options/` | The Options page |
-| `src/main/java/.../debug/` | Breakpoints: the breakpoint, the gutter toggle, its marks, the Breakpoints window, saving them |
+| `src/main/java/.../debug/` | Debugging: breakpoints (gutter toggle, marks, Breakpoints window, saving them), gdb's MI (`Mi`, `Gdb`), the session (`Msp430Debugger`), its actions and windows (`VariablesModel`, `WatchesModel`) |
 | `src/main/java/.../project/` | The MSP430 project type: recognizing it, its node and actions, the New Project wizard; `ProjectFiles` is plain Java |
 | `src/main/resources/.../` | Colours (`FontsColors.xml`), the Options preview, names (`Bundle.properties`) |
 | `src/test/java/.../lexer/` | Lexer tests |
 | `src/test/java/.../assemble/` | Listing, line map and message parsing; assembling with the real toolchain (skipped without it) |
 | `src/test/java/.../help/`, `.../completion/` | Help coverage, TI's files, completion contexts and choices, hover help |
 | `src/test/java/.../assemble/BuildTest.java` | Building a hex, error and linker-error lines, the PICSimLab command |
+| `src/test/java/.../debug/` | Breakpoints, MI parsing, a debugging session against the simulator (`msp430_run --gdb`, skipped without it), the Variables window |
 | `src/test/java/.../project/` | Making a project, which files are sources, building the starter with a C file, errors per file |
 
 ## Licence

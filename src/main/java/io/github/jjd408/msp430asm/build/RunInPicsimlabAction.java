@@ -39,6 +39,6 @@ public final class RunInPicsimlabAction implements ActionListener {
 
     @Override
     public void actionPerformed(ActionEvent ev) {
-        BuildRunner.buildFile(context, true);
+        BuildRunner.buildFile(context, BuildRunner.Mode.RUN);
     }
 }

@@ -79,7 +79,8 @@ final class Msp430LogicalView implements LogicalViewProvider {
         "LBL_Build=Build",
         "LBL_Rebuild=Clean and Build",
         "LBL_Clean=Clean",
-        "LBL_Run=Run in PICSimLab"
+        "LBL_Run=Run in PICSimLab",
+        "LBL_Debug=Debug in PICSimLab"
     })
     private static final class ProjectNode extends FilterNode {
         private final Msp430Project project;
@@ -130,6 +131,7 @@ final class Msp430LogicalView implements LogicalViewProvider {
                         null),
                 ProjectSensitiveActions.projectCommandAction(ActionProvider.COMMAND_CLEAN, Bundle.LBL_Clean(), null),
                 ProjectSensitiveActions.projectCommandAction(ActionProvider.COMMAND_RUN, Bundle.LBL_Run(), null),
+                ProjectSensitiveActions.projectCommandAction(ActionProvider.COMMAND_DEBUG, Bundle.LBL_Debug(), null),
                 null,
                 CommonProjectActions.setAsMainProjectAction(),
                 CommonProjectActions.closeProjectAction(),

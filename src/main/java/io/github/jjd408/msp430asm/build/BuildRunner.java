@@ -13,12 +13,16 @@ import io.github.jjd408.msp430asm.Settings;
 import io.github.jjd408.msp430asm.assemble.Build;
 import io.github.jjd408.msp430asm.assemble.PicSimLab;
 import io.github.jjd408.msp430asm.assemble.Toolchain;
+import io.github.jjd408.msp430asm.debug.Msp430Debugger;
+import io.github.jjd408.msp430asm.debug.Msp430DebuggerConfig;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -40,6 +44,9 @@ import org.openide.windows.OutputWriter;
  */
 public final class BuildRunner {
 
+    /** What to do after building. */
+    public enum Mode { BUILD, RUN, DEBUG }
+
     /** One build: saves what it builds, then builds, printing to {@code out}. */
     public interface Job {
         void save() throws IOException;
@@ -52,6 +59,21 @@ public final class BuildRunner {
 
         /** Called after the build, e.g. to refresh the output folder. */
         void built();
+
+        /** The program's name, for a debugging session. */
+        default String name() {
+            return "MSP430";
+        }
+
+        /** The source files, for a debugging session's breakpoints. */
+        default List<Path> sources() {
+            return List.of();
+        }
+
+        /** The device. */
+        default String mcu() {
+            return Settings.mcu();
+        }
     }
 
     private static final RequestProcessor RP = new RequestProcessor("MSP430 build", 1);
@@ -60,7 +82,7 @@ public final class BuildRunner {
     }
 
     /** Builds one file into build/&lt;name&gt;.hex beside it. */
-    static void buildFile(DataObject dob, boolean run) {
+    static void buildFile(DataObject dob, Mode mode) {
         FileObject fo = dob.getPrimaryFile();
         File file = FileUtil.toFile(fo);
         if (file == null) {
@@ -68,7 +90,17 @@ public final class BuildRunner {
                     .println(fo.getNameExt() + " isn't on disk, so it can't be built.");
             return;
         }
-        start("MSP430 " + fo.getNameExt(), run, new Job() {
+        start("MSP430 " + fo.getNameExt(), mode, new Job() {
+            @Override
+            public String name() {
+                return fo.getNameExt();
+            }
+
+            @Override
+            public List<Path> sources() {
+                return List.of(file.toPath());
+            }
+
             @Override
             public void save() throws IOException {
                 org.openide.cookies.SaveCookie s = dob.getLookup().lookup(org.openide.cookies.SaveCookie.class);
@@ -95,8 +127,9 @@ public final class BuildRunner {
         });
     }
 
-    /** Builds in the background, printing to a tab, and runs the hex in PICSimLab when {@code run} is set. */
-    public static void start(String tab, boolean run, Job job) {
+    /** Builds in the background, printing to a tab; then runs or debugs the program in PICSimLab if asked. */
+    public static void start(String tab, Mode mode, Job job) {
+        boolean run = mode == Mode.RUN;
         InputOutput io = IOProvider.getDefault().getIO(tab, false);
         io.select();
         OutputWriter out = io.getOut();
@@ -106,6 +139,7 @@ public final class BuildRunner {
         } catch (IOException e) {
             // a fresh tab
         }
+        boolean[] keepOpen = {false};  // a debugging session goes on writing to the tab
         RP.post(() -> {
             try {
                 job.save();
@@ -117,6 +151,10 @@ public final class BuildRunner {
                 }
                 Build.Result r = job.build(tc, line -> print(out, err, line));
                 job.built();
+                if (r != null && r.ok && mode == Mode.DEBUG) {
+                    keepOpen[0] = debug(job, tc, r, out, err);
+                    return;
+                }
                 if (r == null || !r.ok || !run) {
                     return;
                 }
@@ -143,10 +181,55 @@ public final class BuildRunner {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             } finally {
-                out.close();
-                err.close();
+                if (!keepOpen[0]) {
+                    out.close();
+                    err.close();
+                }
             }
         });
+    }
+
+    private static final RequestProcessor PICSIMLAB_OUTPUT = new RequestProcessor("PICSimLab output", 4);
+
+    /**
+     * Starts a debugging session on a built program: in the PICSimLab already debugging on its port if there is
+     * one (the session loads the program into it), else in a new one started with debugging on.
+     */
+    private static boolean debug(Job job, Toolchain tc, Build.Result r, OutputWriter out, OutputWriter err)
+            throws IOException {
+        PicSimLab sim = Settings.picsimlab();
+        if (sim == null) {
+            err.println("PICSimLab with the MSP430 backend wasn't found. Set its folder (the one with run.sh) "
+                    + "in Tools > Options > Miscellaneous > MSP430.");
+            return false;
+        }
+        String board = job.board();
+        int port = PicSimLab.DEBUG_PORT;
+        if (PicSimLab.listening(port)) {
+            out.println("PICSimLab is already debugging on port " + port + "; the program is loaded into it.");
+        } else {
+            out.println("$ " + String.join(" ", sim.debugCommand(board, r.hex)));
+            out.println("Starting PICSimLab on the " + board + " board with debugging on; its first start takes "
+                    + "a few seconds.");
+            Process p = sim.launchDebug(board, r.hex);
+            PICSIMLAB_OUTPUT.post(() -> {
+                try (BufferedReader rd = new BufferedReader(new InputStreamReader(p.getInputStream(),
+                        StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = rd.readLine()) != null) {
+                        out.println(line);
+                    }
+                    out.println("PICSimLab exited (" + p.waitFor() + ").");
+                } catch (IOException e) {
+                    // the tab was closed
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            });
+        }
+        Msp430Debugger.startDebugging(new Msp430DebuggerConfig(job.name(), r.elf, job.sources(), tc, sim, board,
+                job.mcu(), port, out::println, line -> print(out, err, line)));
+        return true;
     }
 
     private static final Pattern AT_LINE = Pattern.compile("^(/[^:]+):(\\d+):");

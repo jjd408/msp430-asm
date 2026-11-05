@@ -25,7 +25,8 @@ import org.openide.util.Lookup;
 /** Build, Clean, Clean and Build, and Run for an MSP430 project. */
 final class Msp430ActionProvider implements ActionProvider {
 
-    private static final String[] COMMANDS = {COMMAND_BUILD, COMMAND_CLEAN, COMMAND_REBUILD, COMMAND_RUN};
+    private static final String[] COMMANDS = {COMMAND_BUILD, COMMAND_CLEAN, COMMAND_REBUILD, COMMAND_RUN,
+        COMMAND_DEBUG};
 
     private final Msp430Project project;
 
@@ -49,7 +50,28 @@ final class Msp430ActionProvider implements ActionProvider {
         Path dir = project.path();
         boolean clean = COMMAND_CLEAN.equals(command) || COMMAND_REBUILD.equals(command);
         boolean build = !COMMAND_CLEAN.equals(command);
-        BuildRunner.start(tab, COMMAND_RUN.equals(command), new BuildRunner.Job() {
+        BuildRunner.Mode mode = COMMAND_RUN.equals(command) ? BuildRunner.Mode.RUN
+                : COMMAND_DEBUG.equals(command) ? BuildRunner.Mode.DEBUG : BuildRunner.Mode.BUILD;
+        BuildRunner.start(tab, mode, new BuildRunner.Job() {
+            @Override
+            public String name() {
+                return project.name();
+            }
+
+            @Override
+            public List<Path> sources() {
+                try {
+                    return ProjectFiles.sources(dir);
+                } catch (IOException e) {
+                    return List.of();
+                }
+            }
+
+            @Override
+            public String mcu() {
+                return ProjectFiles.get(ProjectFiles.load(dir), ProjectFiles.MCU, Settings.mcu());
+            }
+
             @Override
             public void save() {
                 LifecycleManager.getDefault().saveAll();

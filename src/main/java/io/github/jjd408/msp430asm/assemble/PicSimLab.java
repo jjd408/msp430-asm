@@ -47,9 +47,33 @@ public final class PicSimLab {
         return null;
     }
 
+    /** PICSimLab's GDB server port (its debug port setting's default). */
+    public static final int DEBUG_PORT = 1234;
+
     /** The command that starts it on a board with a hex file. */
     public List<String> command(String board, Path hex) {
         return List.of(dir.resolve("run.sh").toString(), board, PROCESSOR, hex.toString());
+    }
+
+    /** The command that starts it with debugging on: its GDB server listening on {@link #DEBUG_PORT}. */
+    public List<String> debugCommand(String board, Path hex) {
+        return List.of(dir.resolve("run.sh").toString(), "--debug", board, PROCESSOR, hex.toString());
+    }
+
+    /** Starts it with debugging on. */
+    public Process launchDebug(String board, Path hex) throws IOException {
+        return new ProcessBuilder(debugCommand(board, hex)).directory(dir.toFile()).redirectErrorStream(true)
+                .start();
+    }
+
+    /** Whether something (a PICSimLab debugging) listens on a port of this machine. */
+    public static boolean listening(int port) {
+        try (java.net.ServerSocket s = new java.net.ServerSocket(port, 1,
+                java.net.InetAddress.getLoopbackAddress())) {
+            return false;
+        } catch (IOException e) {
+            return true;
+        }
     }
 
     /** Starts it; the caller reads its output. */

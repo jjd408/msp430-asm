@@ -38,6 +38,6 @@ public final class BuildHexAction implements ActionListener {
 
     @Override
     public void actionPerformed(ActionEvent ev) {
-        BuildRunner.buildFile(context, false);
+        BuildRunner.buildFile(context, BuildRunner.Mode.BUILD);
     }
 }
