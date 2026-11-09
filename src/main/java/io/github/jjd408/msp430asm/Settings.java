@@ -11,13 +11,14 @@ package io.github.jjd408.msp430asm;
 
 import io.github.jjd408.msp430asm.assemble.PicSimLab;
 import io.github.jjd408.msp430asm.assemble.Toolchain;
+import io.github.jjd408.msp430asm.format.AsmFormatter;
 import io.github.jjd408.msp430asm.help.DeviceInfo;
 import org.openide.util.NbPreferences;
 
 /**
  * The module's settings (Tools &gt; Options &gt; Miscellaneous &gt; MSP430), kept in its preferences: the folder
- * holding msp430-elf-as (found automatically when empty), the device, and the PICSimLab to run builds in and its
- * board.
+ * holding msp430-elf-as (found automatically when empty), the device, the PICSimLab to run builds in and its
+ * board, and the columns Source &gt; Format lines code up in.
  */
 public final class Settings {
 
@@ -27,6 +28,9 @@ public final class Settings {
     public static final String PICSIMLAB_DIR = "picsimlabDir";
     public static final String BOARD = "picsimlabBoard";
     public static final String DEFAULT_BOARD = "Solitaire";
+    public static final String MNEMONIC_COLUMN = "formatMnemonicColumn";
+    public static final String OPERAND_COLUMN = "formatOperandColumn";
+    public static final String COMMENT_COLUMN = "formatCommentColumn";
 
     private Settings() {
     }
@@ -48,6 +52,21 @@ public final class Settings {
     /** The PICSimLab board to run builds on: Solitaire (the handheld) or MSP430_Board. */
     public static String board() {
         return get(BOARD, DEFAULT_BOARD);
+    }
+
+    /** The formatter, with the columns from the settings. */
+    public static AsmFormatter formatter() {
+        return new AsmFormatter(column(MNEMONIC_COLUMN, AsmFormatter.DEFAULT_MNEMONIC_COLUMN),
+                column(OPERAND_COLUMN, AsmFormatter.DEFAULT_OPERAND_COLUMN),
+                column(COMMENT_COLUMN, AsmFormatter.DEFAULT_COMMENT_COLUMN));
+    }
+
+    public static int column(String key, int def) {
+        try {
+            return Integer.parseInt(get(key, Integer.toString(def)).trim());
+        } catch (NumberFormatException e) {
+            return def;
+        }
     }
 
     public static String get(String key, String def) {
