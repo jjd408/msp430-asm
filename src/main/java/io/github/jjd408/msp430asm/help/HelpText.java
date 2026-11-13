@@ -103,6 +103,30 @@ public final class HelpText {
         return b.toString();
     }
 
+    public static String section(String name, String what) {
+        return "<html><b><tt>" + esc(name) + "</tt></b> <small>(section)</small><p>For " + esc(what) + ".</p>";
+    }
+
+    public static String vector(DeviceInfo.Vector v) {
+        StringBuilder b = new StringBuilder("<html><b><tt>").append(esc(v.preferred())).append("</tt></b> <small>(interrupt vector ")
+                .append(v.number).append(")</small><p>");
+        if (v.headerName != null) {
+            b.append("The vector the header calls <tt>").append(esc(v.headerName)).append("</tt>");
+        } else {
+            b.append("Interrupt vector ").append(v.number);
+        }
+        if (v.address != null) {
+            b.append(", at ").append(esc(v.address));
+        }
+        b.append(". The section holds one word: the address of the routine that handles it.</p><pre>")
+                .append("        .section ").append(esc(v.preferred())).append(",\"ax\",@progbits\n")
+                .append("        .word   my_isr</pre>");
+        if (v.namedSection != null) {
+            b.append("<p>Also <tt>").append(esc(v.section)).append("</tt>, by number.</p>");
+        }
+        return b.toString();
+    }
+
     public static String label(String name, int line) {
         return "<html><b><tt>" + esc(name) + "</tt></b> <small>(label)</small><p>Defined on line " + line
                 + ". Ctrl+click to go there.</p>";

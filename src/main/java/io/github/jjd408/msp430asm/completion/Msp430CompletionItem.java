@@ -53,7 +53,7 @@ final class Msp430CompletionItem implements CompletionItem {
         int caret = component.getCaretPosition();
         try {
             doc.remove(start, caret - start);
-            doc.insertString(start, choice.text, null);
+            doc.insertString(start, choice.insert, null);
         } catch (BadLocationException e) {
             Exceptions.printStackTrace(e);
         }

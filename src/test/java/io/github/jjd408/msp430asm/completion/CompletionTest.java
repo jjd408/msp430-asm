@@ -88,6 +88,51 @@ class CompletionTest {
     }
 
     @Test
+    void operandKnowsItsMnemonicAndPosition() {
+        Context c = Context.of("        .section __int");
+        assertEquals(".section", c.mnemonic);
+        assertEquals(0, c.operand);
+        Context d = Context.of("vec:    .section __interrupt_vector_port1,\"ax\",@pro");
+        assertEquals(".section", d.mnemonic);
+        assertEquals(2, d.operand);
+        assertEquals("mov.w", Context.of("  mov.w #1, &P1").mnemonic);
+    }
+
+    @Test
+    void interruptVectorSectionsAfterSection() {
+        Toolchain tc = Toolchain.find(null);
+        assumeTrue(tc != null && tc.include() != null, "TI's support files aren't installed");
+        DeviceInfo d = DeviceInfo.load(tc.include(), "msp430fr2355");
+        DeviceInfo.Vector port1 = d.vector("__interrupt_vector_port1");
+        assertEquals(25, port1.number);
+        assertEquals("PORT1_VECTOR", port1.headerName);
+        assertEquals("0xFFD4", port1.address);
+        assertEquals(port1, d.vector("__interrupt_vector_25"), "by number too");
+        assertEquals("__interrupt_vector_timer0_b0", d.vector("__interrupt_vector_43").namedSection);
+
+        // the start of the section name, any part of the vector's name, or the header's name
+        assertTrue(choices("  .section __interrupt_vector_po", "", d).contains("SECTION __interrupt_vector_port1"));
+        List<String> port = choices("  .section port", "", d);
+        assertTrue(port.containsAll(List.of("SECTION __interrupt_vector_port1", "SECTION __interrupt_vector_port4")),
+                port.toString());
+        assertTrue(choices("  .section TIMER0_B1", "", d).contains("SECTION __interrupt_vector_timer0_b1"));
+        assertTrue(choices("  .section .b", "", d).contains("SECTION .bss"));
+        assertTrue(choices("  .section ", "", d).size() > 30, "everything when nothing is typed yet");
+        assertTrue(choices("  .section port", "", d).stream().noneMatch(s -> s.startsWith("REGISTER")),
+                "only sections there");
+
+        // choosing one writes the flags too; hover explains it
+        Choices.Choice c = Choices.of(Context.of("  .section port1"), "", d).get(0);
+        assertEquals("__interrupt_vector_port1,\"ax\",@progbits", c.insert);
+        assertTrue(c.note.contains("PORT1_VECTOR") && c.note.contains("0xFFD4"), c.note);
+        assertTrue(Choices.helpFor(Context.of("  .section "), "__interrupt_vector_port1", "", d).contains("0xFFD4"));
+
+        // after the name (the flags), ordinary operand completion again
+        assertTrue(choices("  .section __interrupt_vector_port1, po", "", d).stream()
+                .noneMatch(s -> s.startsWith("SECTION")));
+    }
+
+    @Test
     void hoverHelpByPosition() {
         String text = "main: nop\n  jmp main\n";
         assertTrue(Choices.helpFor(Context.of("  "), "mov.b", text, DeviceInfo.empty()).contains("MOV src, dst"));

@@ -23,11 +23,21 @@ public final class Context {
     public final String prefix;
     /** The character just before the word: '#', '&amp;', '@' or 0. */
     public final char mark;
+    /** For an operand: the line's mnemonic (instruction or directive), lower case; else "". */
+    public final String mnemonic;
+    /** For an operand: which one it is, from 0 (the commas before it). */
+    public final int operand;
 
     private Context(Kind kind, String prefix, char mark) {
+        this(kind, prefix, mark, "", 0);
+    }
+
+    private Context(Kind kind, String prefix, char mark, String mnemonic, int operand) {
         this.kind = kind;
         this.prefix = prefix;
         this.mark = mark;
+        this.mnemonic = mnemonic;
+        this.operand = operand;
     }
 
     static boolean isWordChar(char c) {
@@ -65,7 +75,16 @@ public final class Context {
         if (colon >= 0 && head.substring(0, colon).trim().matches("[A-Za-z0-9_.$]+")) {
             head = head.substring(colon + 1);
         }
-        Kind kind = head.isBlank() && mark == 0 ? Kind.MNEMONIC : Kind.OPERAND;
-        return new Context(kind, prefix, mark);
+        if (head.isBlank() && mark == 0) {
+            return new Context(Kind.MNEMONIC, prefix, mark);
+        }
+        String rest = head.strip();
+        int end = 0;
+        while (end < rest.length() && isWordChar(rest.charAt(end))) {
+            end++;
+        }
+        String mnemonic = rest.substring(0, end).toLowerCase(java.util.Locale.ROOT);
+        int operand = (int) rest.substring(end).chars().filter(c -> c == ',').count();
+        return new Context(Kind.OPERAND, prefix, mark, mnemonic, operand);
     }
 }

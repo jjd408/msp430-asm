@@ -13,7 +13,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,7 +27,8 @@ import java.util.regex.Pattern;
  * A device's peripheral registers and bit constants, read from TI's support files: msp430&lt;mcu&gt;.h
  * ({@code sfr_w(WDTCTL); /* Watchdog Timer Control Register *&#47;} and {@code #define WDTPW (0x5a00) /* ... *&#47;},
  * grouped under {@code /* WDTCTL Control Bits *&#47;}) and msp430&lt;mcu&gt;_symbols.ld
- * ({@code PROVIDE(WDTCTL = 0x01CC);}).
+ * ({@code PROVIDE(WDTCTL = 0x01CC);}), and the interrupt vectors' sections from msp430&lt;mcu&gt;.ld
+ * ({@code __interrupt_vector_25 : { KEEP (*(__interrupt_vector_25)) KEEP (*(__interrupt_vector_port1)) } > VECT25}).
  */
 public final class DeviceInfo {
 
@@ -61,6 +65,37 @@ public final class DeviceInfo {
         }
     }
 
+    /** An interrupt vector: the sections that put a routine's address in it. */
+    public static final class Vector {
+        public final int number;
+        /** The section by number, e.g. "__interrupt_vector_25". */
+        public final String section;
+        /** The section by name, e.g. "__interrupt_vector_port1", or null if the linker script gives none. */
+        public final String namedSection;
+        /** The header's name for it, e.g. "PORT1_VECTOR", or null. */
+        public final String headerName;
+        /** Its address, e.g. "0xFFD4", or null. */
+        public final String address;
+
+        Vector(int number, String section, String namedSection, String headerName, String address) {
+            this.number = number;
+            this.section = section;
+            this.namedSection = namedSection;
+            this.headerName = headerName;
+            this.address = address;
+        }
+
+        /** The section to use: the named one if there is one. */
+        public String preferred() {
+            return namedSection != null ? namedSection : section;
+        }
+    }
+
+    private static final Pattern VECTOR_SECTION = Pattern.compile(
+            "^\\s*(__interrupt_vector_(\\d+))\\s*:\\s*\\{(.*)\\}\\s*>\\s*(\\w+)");
+    private static final Pattern KEEP = Pattern.compile("KEEP\\s*\\(\\s*\\*\\s*\\(\\s*(\\w+)\\s*\\)\\s*\\)");
+    private static final Pattern MEMORY = Pattern.compile("^\\s*(\\w+)\\s*:\\s*ORIGIN\\s*=\\s*(0x[0-9A-Fa-f]+)");
+
     private static final Pattern SFR = Pattern.compile("^sfr_([bwa])\\((\\w+)\\);\\s*(?:/\\*\\s*(.*?)\\s*\\*/)?");
     private static final Pattern DEFINE = Pattern.compile(
             "^#define\\s+(\\w+)\\s+(\\([^)]*\\)|\\S+)\\s*(?:/\\*\\s*(.*?)\\s*\\*/)?\\s*$");
@@ -71,15 +106,28 @@ public final class DeviceInfo {
 
     public final Map<String, Register> registers;
     public final Map<String, Constant> constants;
+    /** The interrupt vectors, by number. */
+    public final List<Vector> vectors;
 
-    private DeviceInfo(Map<String, Register> registers, Map<String, Constant> constants) {
+    private DeviceInfo(Map<String, Register> registers, Map<String, Constant> constants, List<Vector> vectors) {
         this.registers = Collections.unmodifiableMap(registers);
         this.constants = Collections.unmodifiableMap(constants);
+        this.vectors = Collections.unmodifiableList(vectors);
+    }
+
+    /** The vector a section name puts a routine in (by number or by name), or null. */
+    public Vector vector(String section) {
+        for (Vector v : vectors) {
+            if (v.section.equals(section) || section.equals(v.namedSection)) {
+                return v;
+            }
+        }
+        return null;
     }
 
     /** An empty database, for when the support files aren't there. */
     public static DeviceInfo empty() {
-        return new DeviceInfo(new LinkedHashMap<>(), new LinkedHashMap<>());
+        return new DeviceInfo(new LinkedHashMap<>(), new LinkedHashMap<>(), new ArrayList<>());
     }
 
     /** The device's database from an include folder (cached), or an empty one if its files are missing. */
@@ -141,9 +189,47 @@ public final class DeviceInfo {
                             group != null && registers.containsKey(group) ? group : null));
                 }
             }
-            return new DeviceInfo(registers, constants);
+            return new DeviceInfo(registers, constants, vectors(include.resolve(mcu + ".ld"), constants));
         } catch (IOException e) {
             return empty();
         }
+    }
+
+    /** The vectors in a linker script, with the header's names for them (PORT1_VECTOR = 25). */
+    static List<Vector> vectors(Path linkerScript, Map<String, Constant> constants) throws IOException {
+        List<Vector> out = new ArrayList<>();
+        if (!Files.isRegularFile(linkerScript)) {
+            return out;
+        }
+        Map<Integer, String> headerNames = new HashMap<>();
+        for (Constant c : constants.values()) {
+            if (c.name.endsWith("_VECTOR") && c.value.matches("\\d+")) {
+                headerNames.putIfAbsent(Integer.parseInt(c.value), c.name);
+            }
+        }
+        List<String> lines = Files.readAllLines(linkerScript, StandardCharsets.ISO_8859_1);
+        Map<String, String> origins = new HashMap<>();
+        for (String line : lines) {
+            Matcher m = MEMORY.matcher(line);
+            if (m.find()) {
+                origins.put(m.group(1), "0x" + m.group(2).substring(2).toUpperCase());
+            }
+        }
+        for (String line : lines) {
+            Matcher m = VECTOR_SECTION.matcher(line);
+            if (!m.find()) {
+                continue;
+            }
+            int number = Integer.parseInt(m.group(2));
+            String named = null;
+            Matcher k = KEEP.matcher(m.group(3));
+            while (k.find()) {
+                if (!k.group(1).equals(m.group(1))) {
+                    named = k.group(1);
+                }
+            }
+            out.add(new Vector(number, m.group(1), named, headerNames.get(number), origins.get(m.group(4))));
+        }
+        return out;
     }
 }
